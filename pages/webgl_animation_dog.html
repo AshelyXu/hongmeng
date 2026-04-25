@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<title>three.js webgl - skinning and morphing</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	<link type="text/css" rel="stylesheet" href="../css/main.css">
+	<style>
+		html,
+		body {
+			margin: 0;
+			padding: 0;
+			overflow: hidden;
+		}
+
+		body {
+			height: 100%;
+			background: linear-gradient(to bottom, orange, #ffffff);
+		}
+
+		.menu {
+			position: fixed;
+			bottom: 16px;
+			left: 16px;
+			right: 16px;
+			z-index: 10001;
+		}
+
+		.menu button{
+			font-size: 16px;
+			font-weight: bold;
+			color: #fff;
+			background: #ff9900;
+			border: none;
+			border-radius: 8px;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="menu">
+		<button onclick="fadeToAction(0, 0.5)">装死</button>
+		<button onclick="fadeToAction(1, 0.5)">翻滚</button>
+		<button onclick="fadeToAction(2, 0.5)">伸手</button>
+		<button onclick="fadeToAction(4, 0.5)">起立</button>
+		<button onclick="fadeToAction(3, 0.5)">坐下</button>
+	</div>
+	<script type="importmap">
+			{
+				"imports": {
+					"three": "../plugins/threejs/build/three.module.js",
+					"three/addons/": "../plugins/threejs/jsm/"
+				}
+			}
+		</script>
+
+	<script type="module">
+
+		import * as THREE from 'three';
+
+		import Stats from 'three/addons/libs/stats.module.js';
+
+		import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+		let container, stats, clock, mixer, actions, activeAction, previousAction;
+		let camera, scene, renderer, model, face;
+
+		const api = { state: 'Walking' };
+
+		init();
+
+		function init() {
+
+			container = document.createElement('div');
+			document.body.appendChild(container);
+
+			camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.25, 100);
+			camera.position.set(5, 5, 10);
+			camera.lookAt(-0.5, 2, 0);
+
+			scene = new THREE.Scene();
+
+			clock = new THREE.Clock();
+
+			// lights
+
+			const hemiLight = new THREE.HemisphereLight(0xffffff, 0x8d8d8d, 9);
+			hemiLight.position.set(0, 20, 0);
+			scene.add(hemiLight);
+
+			const dirLight = new THREE.DirectionalLight(0xffffff, 3);
+			dirLight.position.set(0, 20, 10);
+			scene.add(dirLight);
+
+			// scene.background = new THREE.Color(0x000000, 0);
+
+			// model
+
+			const loader = new GLTFLoader();
+			loader.load('../models/dog.glb', function (gltf) {
+
+				model = gltf.scene;
+				model.scale.set(0.04, 0.04, 0.04);
+				scene.add(model);
+
+				createAnime(model, gltf.animations);
+
+			}, undefined, function (e) {
+
+				console.error(e);
+
+			});
+
+			renderer = new THREE.WebGLRenderer({ alpha: true });
+			renderer.setPixelRatio(window.devicePixelRatio);
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.setAnimationLoop(animate);
+			container.appendChild(renderer.domElement);
+			renderer.setClearColor(0x000000, 0);
+
+			window.addEventListener('resize', onWindowResize);
+
+			// stats
+			stats = new Stats();
+			container.appendChild(stats.dom);
+
+		}
+
+		function createAnime(model, animations) {
+
+			mixer = new THREE.AnimationMixer(model);
+
+			actions = {};
+
+			for (let i = 0; i < animations.length; i++) {
+
+				const clip = animations[i];
+				const action = mixer.clipAction(clip);
+				actions[i] = action;
+
+			}
+
+			activeAction = actions[3];
+			activeAction.play();
+
+		}
+
+		function fadeToAction(key, duration) {
+
+			previousAction = activeAction;
+			activeAction = actions[key];
+
+			if (previousAction !== activeAction) {
+
+				previousAction.fadeOut(duration);
+
+			}
+
+			activeAction
+				.reset()
+				.setEffectiveTimeScale(1)
+				.setEffectiveWeight(1)
+				.fadeIn(duration)
+				.play();
+
+		}
+
+		window.fadeToAction = fadeToAction;
+
+		function onWindowResize() {
+
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+
+			renderer.setSize(window.innerWidth, window.innerHeight);
+
+		}
+
+		//
+
+		function animate() {
+
+			const dt = clock.getDelta();
+
+			if (mixer) mixer.update(dt);
+
+			renderer.render(scene, camera);
+
+			stats.update();
+
+		}
+
+	</script>
+
+</body>
+
+</html>
