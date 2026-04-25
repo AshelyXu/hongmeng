@@ -1,194 +1,1475 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 
 <head>
-	<title>three.js webgl - skinning and morphing</title>
+	<title>桌面宠物狗</title>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 	<link type="text/css" rel="stylesheet" href="../css/main.css">
 	<style>
+		:root {
+			color-scheme: light;
+			--panel-bg: rgba(255, 250, 240, 0.88);
+			--panel-border: rgba(120, 82, 32, 0.18);
+			--accent: #d97a1d;
+			--accent-strong: #b85f08;
+			--text-main: #432d17;
+			--text-muted: #8d6b45;
+			--button-bg: rgba(255, 255, 255, 0.82);
+			--shadow: 0 16px 40px rgba(102, 66, 19, 0.18);
+		}
+
 		html,
 		body {
 			margin: 0;
 			padding: 0;
 			overflow: hidden;
+			width: 100%;
+			height: 100%;
 		}
 
 		body {
-			height: 100%;
-			background: linear-gradient(to bottom, orange, #ffffff);
+			background:
+				radial-gradient(circle at top, rgba(255, 248, 224, 0.95), rgba(255, 255, 255, 0) 42%),
+				linear-gradient(180deg, #ffcf72 0%, #fff0cb 48%, #ffffff 100%);
+			color: var(--text-main);
+			font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 		}
 
-		.menu {
+		canvas {
+			display: block;
+		}
+
+		.hud {
 			position: fixed;
-			bottom: 16px;
-			left: 16px;
-			right: 16px;
-			z-index: 10001;
+			inset: 16px 16px auto 16px;
+			display: grid;
+			grid-template-columns: minmax(280px, 360px) minmax(240px, 320px);
+			gap: 14px;
+			align-items: start;
+			z-index: 10;
+			pointer-events: none;
 		}
 
-		.menu button{
-			font-size: 16px;
-			font-weight: bold;
-			color: #fff;
-			background: #ff9900;
+		.mobile-panel-bar {
+			display: none;
+			position: fixed;
+			top: 14px;
+			left: 14px;
+			right: 14px;
+			z-index: 12;
+			gap: 8px;
+			pointer-events: none;
+		}
+
+		.panel {
+			background: var(--panel-bg);
+			backdrop-filter: blur(14px);
+			border: 1px solid var(--panel-border);
+			border-radius: 18px;
+			box-shadow: var(--shadow);
+			padding: 16px 18px;
+			pointer-events: auto;
+		}
+
+		.panel h1,
+		.panel h2,
+		.panel p {
+			margin: 0;
+		}
+
+		.panel h1 {
+			font-size: 22px;
+			font-weight: 700;
+		}
+
+		.panel p {
+			color: var(--text-muted);
+			font-size: 13px;
+			line-height: 1.5;
+			margin-top: 6px;
+		}
+
+		.badges {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin-top: 12px;
+		}
+
+		.badge {
+			background: rgba(255, 255, 255, 0.8);
+			border: 1px solid rgba(164, 124, 54, 0.14);
+			border-radius: 999px;
+			padding: 6px 10px;
+			font-size: 12px;
+			color: var(--text-main);
+		}
+
+		.stats {
+			margin-top: 14px;
+			display: grid;
+			gap: 10px;
+		}
+
+		.stat {
+			display: grid;
+			gap: 6px;
+		}
+
+		.stat-header {
+			display: flex;
+			justify-content: space-between;
+			font-size: 12px;
+			color: var(--text-main);
+		}
+
+		.progress {
+			width: 100%;
+			height: 10px;
+			background: rgba(255, 255, 255, 0.66);
+			border-radius: 999px;
+			overflow: hidden;
+		}
+
+		.progress span {
+			display: block;
+			height: 100%;
+			border-radius: inherit;
+			background: linear-gradient(90deg, #f4c56d, var(--accent));
+			transition: width 0.35s ease;
+		}
+
+		.controls {
+			position: fixed;
+			left: 28px;
+			right: auto;
+			bottom: 28px;
+			z-index: 10;
+			display: flex;
+			justify-content: flex-start;
+			pointer-events: none;
+		}
+
+		.controls-inner {
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: center;
+			gap: 10px;
+			background: rgba(255, 250, 240, 0.9);
+			border: 1px solid var(--panel-border);
+			border-radius: 22px;
+			box-shadow: var(--shadow);
+			padding: 12px;
+			max-width: 350px;
+			pointer-events: auto;
+		}
+
+		button {
+			cursor: pointer;
+			text-transform: none;
+			font-family: inherit;
+		}
+
+		.action-btn,
+		.personality-btn,
+		.debug-btn {
 			border: none;
-			border-radius: 8px;
+			border-radius: 14px;
+			background: var(--button-bg);
+			color: var(--text-main);
+			padding: 12px 16px;
+			font-size: 15px;
+			font-weight: 600;
+			transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+			box-shadow: 0 8px 18px rgba(137, 91, 33, 0.08);
+		}
+
+		.action-btn:hover,
+		.personality-btn:hover,
+		.debug-btn:hover {
+			transform: translateY(-1px);
+			background: #ffffff;
+		}
+
+		.action-btn.primary,
+		.personality-btn.primary {
+			background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+			color: #fffaf4;
+		}
+
+		.status-line {
+			margin-top: 14px;
+			font-size: 13px;
+			line-height: 1.5;
+			color: var(--text-main);
+		}
+
+		.helper-line {
+			margin-top: 8px;
+			font-size: 12px;
+			color: var(--text-muted);
+		}
+
+		.debug-panel {
+			margin-top: 14px;
+			max-height: 260px;
+			overflow: auto;
+			display: none;
+			gap: 8px;
+			grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+		}
+
+		.debug-panel.open {
+			display: grid;
+		}
+
+		.debug-btn {
+			padding: 8px 10px;
+			font-size: 12px;
+			font-weight: 500;
+		}
+
+		.panel-toggle {
+			display: none;
+			border: 1px solid var(--panel-border);
+			border-radius: 999px;
+			background: rgba(255, 250, 240, 0.92);
+			color: var(--text-main);
+			padding: 10px 14px;
+			font-size: 13px;
+			font-weight: 700;
+			box-shadow: var(--shadow);
+			pointer-events: auto;
+		}
+
+		.overlay {
+			position: fixed;
+			inset: 0;
+			background: rgba(72, 43, 9, 0.35);
+			backdrop-filter: blur(10px);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 24px;
+			z-index: 20;
+		}
+
+		.overlay.hidden {
+			display: none;
+		}
+
+		.overlay-card {
+			max-width: 900px;
+			width: 100%;
+			background: rgba(255, 248, 236, 0.96);
+			border-radius: 28px;
+			border: 1px solid rgba(146, 104, 41, 0.12);
+			box-shadow: 0 24px 80px rgba(63, 40, 12, 0.24);
+			padding: 28px;
+		}
+
+		.overlay-card h2 {
+			font-size: 30px;
+			font-weight: 700;
+		}
+
+		.overlay-card p {
+			margin-top: 10px;
+			color: var(--text-muted);
+			line-height: 1.6;
+		}
+
+		.personality-grid {
+			margin-top: 22px;
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 14px;
+		}
+
+		.personality-btn {
+			text-align: left;
+			padding: 18px;
+			min-height: 160px;
+		}
+
+		.personality-btn strong {
+			display: block;
+			font-size: 18px;
+			margin-bottom: 10px;
+		}
+
+		.personality-btn span {
+			display: block;
+			font-size: 13px;
+			line-height: 1.6;
+			font-weight: 400;
+		}
+
+		@media (max-width: 920px) {
+			.hud {
+				inset: 58px 12px auto 12px;
+				grid-template-columns: 1fr;
+				gap: 10px;
+			}
+
+			.personality-grid {
+				grid-template-columns: 1fr;
+			}
+
+			.mobile-panel-bar {
+				display: flex;
+			}
+
+			.panel-toggle {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+			}
+
+				.panel {
+					padding: 0 15px;
+					max-height: 0;
+					overflow: hidden;
+					opacity: 0;
+					transform: translateY(-10px);
+					pointer-events: none;
+				transition: max-height 0.28s ease, opacity 0.22s ease, transform 0.22s ease, padding 0.22s ease;
+			}
+
+				.panel.open {
+					padding: 14px 15px;
+					max-height: 65vh;
+					overflow: auto;
+					opacity: 1;
+					transform: translateY(0);
+					pointer-events: auto;
+				}
+
+				.controls {
+					left: 10px;
+					right: 10px;
+					bottom: max(12px, env(safe-area-inset-bottom));
+					justify-content: center;
+				}
+
+				.controls-inner {
+					width: 100%;
+					max-width: 520px;
+					border-radius: 18px;
+					padding: 10px;
+					gap: 8px;
+				}
+
+			.action-btn {
+				flex: 1 1 calc(50% - 8px);
+				padding: 11px 12px;
+				font-size: 14px;
+			}
 		}
 	</style>
 </head>
 
 <body>
-	<div class="menu">
-		<button onclick="fadeToAction(0, 0.5)">装死</button>
-		<button onclick="fadeToAction(1, 0.5)">翻滚</button>
-		<button onclick="fadeToAction(2, 0.5)">伸手</button>
-		<button onclick="fadeToAction(4, 0.5)">起立</button>
-		<button onclick="fadeToAction(3, 0.5)">坐下</button>
+	<div class="overlay" id="personalityOverlay">
+		<div class="overlay-card">
+			<h2>领养你的桌面小狗</h2>
+			<p>先选一个初始性格。后续它会随着你的互动慢慢形成自己的习惯，但底色会一直保留下来。这一版优先保证动作流畅，所以主要围绕坐下、趴下、慢慢探索和温和互动来设计。</p>
+			<div class="personality-grid">
+				<button class="personality-btn primary" data-personality="gentle">
+					<strong>温顺型</strong>
+					<span>更爱陪着你安静坐着或趴着。被摸摸后会更快给出温柔反馈，整体节奏更舒缓。</span>
+				</button>
+				<button class="personality-btn" data-personality="playful">
+					<strong>活泼型</strong>
+					<span>更喜欢自己走动、闻来闻去，也更容易在互动后露出开心劲头，像一只精力充沛的小狗。</span>
+				</button>
+				<button class="personality-btn" data-personality="alert">
+					<strong>警觉型</strong>
+					<span>更常先观察环境和嗅闻，慢热一些，但随着亲密度和安全感提升，会逐渐变得更放松。</span>
+				</button>
+			</div>
+		</div>
 	</div>
+
+	<div class="mobile-panel-bar">
+		<button class="panel-toggle" data-panel-toggle="petPanel">宠物状态</button>
+		<button class="panel-toggle" data-panel-toggle="rhythmPanel">当前节奏</button>
+	</div>
+
+	<div class="hud">
+		<div class="panel" id="petPanel">
+			<h1>桌面宠物狗</h1>
+			<p>不是简单的动作播放器，而是一只会自己待着、走动、闻一闻，也会认真回应你的桌面宠物。</p>
+			<div class="badges">
+				<div class="badge" id="personalityBadge">性格：未选择</div>
+				<div class="badge" id="moodBadge">心情：平静</div>
+				<div class="badge" id="stateBadge">状态：准备中</div>
+			</div>
+			<div class="stats">
+				<div class="stat">
+					<div class="stat-header">
+						<span>亲密度</span>
+						<span id="bondValue">0</span>
+					</div>
+					<div class="progress"><span id="bondBar" style="width: 0%"></span></div>
+				</div>
+				<div class="stat">
+					<div class="stat-header">
+						<span>精力</span>
+						<span id="energyValue">0</span>
+					</div>
+					<div class="progress"><span id="energyBar" style="width: 0%"></span></div>
+				</div>
+				<div class="stat">
+					<div class="stat-header">
+						<span>安全感</span>
+						<span id="trustValue">0</span>
+					</div>
+					<div class="progress"><span id="trustBar" style="width: 0%"></span></div>
+				</div>
+			</div>
+			<div class="status-line" id="statusText">正在加载模型...</div>
+			<div class="helper-line" id="helperText">当前版本只启用一批最稳的动作白名单，优先保证所有衔接顺滑。</div>
+			<div class="debug-panel" id="debugPanel"></div>
+		</div>
+		<div class="panel" id="rhythmPanel">
+			<h2>当前节奏</h2>
+			<p id="planText">待机、轻微小动作、慢速探索、与你互动后回到稳定姿态。</p>
+			<div class="badges">
+				<div class="badge" id="activeAnimationBadge">动画：未开始</div>
+				<div class="badge" id="queueBadge">队列：空</div>
+				<div class="badge" id="decisionBadge">决策：等待领养</div>
+			</div>
+			<div class="helper-line">交互是触发意图，不是硬切动作。走路或趴着时，系统会先找自然的过渡动作，再回应你。</div>
+			<button class="debug-btn" id="toggleDebugBtn" style="margin-top: 14px;">显示调试动作面板</button>
+		</div>
+	</div>
+
+	<div class="controls">
+		<div class="controls-inner">
+			<button class="action-btn primary" data-action="pet">摸摸它</button>
+			<button class="action-btn" data-action="feed">投喂</button>
+			<button class="action-btn" data-action="call">呼唤它</button>
+			<button class="action-btn" data-action="rest">让它休息</button>
+		</div>
+	</div>
+
 	<script type="importmap">
-			{
-				"imports": {
-					"three": "../plugins/threejs/build/three.module.js",
-					"three/addons/": "../plugins/threejs/jsm/"
-				}
+		{
+			"imports": {
+				"three": "../plugins/threejs/build/three.module.js",
+				"three/addons/": "../plugins/threejs/jsm/"
 			}
-		</script>
+		}
+	</script>
 
 	<script type="module">
 
 		import * as THREE from 'three';
-
 		import Stats from 'three/addons/libs/stats.module.js';
-
 		import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-		let container, stats, clock, mixer, actions, activeAction, previousAction;
-		let camera, scene, renderer, model, face;
+			const STABLE_STATES = {
+				stand: 'StandIdle',
+				sit: 'SitIdle',
+				lay: 'LayIdle',
+				rest: 'RestIdle',
+				sniff: 'SniffIdle',
+				walk: 'WalkExplore',
+			};
 
-		const api = { state: 'Walking' };
+		const PERSONALITIES = {
+			gentle: {
+				label: '温顺型',
+				base: { bond: 62, energy: 52, trust: 68 },
+				stableWeights: { stand: 0.16, sit: 0.34, lay: 0.2, rest: 0.16, sniff: 0.1, walk: 0.04 },
+				moodBias: { calm: 10, happy: 8, bored: -4, alert: -4 },
+				exploreChance: 0.22,
+				playfulBonus: 0.08,
+				petResponse: ['interact_elmer_pet_1', 'yes', 'interact_elmer_pet_2'],
+			},
+			playful: {
+				label: '活泼型',
+				base: { bond: 55, energy: 78, trust: 58 },
+				stableWeights: { stand: 0.25, sit: 0.16, lay: 0.06, rest: 0.04, sniff: 0.2, walk: 0.29 },
+				moodBias: { calm: -6, happy: 12, bored: 4, alert: -2 },
+				exploreChance: 0.48,
+				playfulBonus: 0.18,
+				petResponse: ['interact_elmer_pet_1', 'interact_elmer_pet_2', 'playbow'],
+			},
+			alert: {
+				label: '警觉型',
+				base: { bond: 46, energy: 61, trust: 40 },
+				stableWeights: { stand: 0.33, sit: 0.11, lay: 0.04, rest: 0.03, sniff: 0.29, walk: 0.2 },
+				moodBias: { calm: -8, happy: 0, bored: 0, alert: 12 },
+				exploreChance: 0.32,
+				playfulBonus: 0.02,
+				petResponse: ['yes', 'interact_elmer_pet_1', 'wave'],
+			},
+		};
+
+		const MOOD_LABELS = {
+			happy: '开心',
+			calm: '平静',
+			bored: '无聊',
+			alert: '警觉',
+		};
+
+		const CLIP_PLAN = {
+			idle: {
+				stand: 'idle 50',
+				sit: 'idle_sit_pose 2',
+				lay: 'idle_lay_pose 2',
+				rest: 'idle_rest_pose 22',
+				sniff: 'idle_sniff_pose',
+				walk: ['walk_fwd_sniff 46', 'walk_fwd_sniff_multi_cycle 61'],
+			},
+			transition: {
+				'stand->sit': 'idle_to_idle_sit 57',
+				'stand->lay': 'idle_to_idle_lay 111',
+				'stand->rest': 'idle_to_idle_lay 111',
+				'stand->walk': 'idle_to_walk_fwd 47',
+				'stand->sniff': 'idle_to_idle_sniff 46',
+				'sit->stand': 'idle_sit_to_idle 56',
+				'sit->lay': 'idle_sit_to_idle_lay 113',
+				'sit->rest': 'idle_sit_to_idle_lay 113',
+				'sit->walk': 'idle_sit_to_walk_fwd 61',
+				'lay->stand': 'idle_lay_to_idle 71',
+				'lay->sit': 'idle_lay_to_idle_sit 93',
+				'lay->rest': 'idle_lay_one_off_1. 112',
+				'rest->stand': 'idle_lay_to_idle 71',
+				'rest->sit': 'idle_lay_to_idle_sit 93',
+				'rest->lay': 'idle_lay_one_off_1. 112',
+				'rest->walk': 'idle_lay_to_walk_fwd 38',
+				'lay->walk': 'idle_lay_to_walk_fwd 38',
+				'walk->stand': 'walk_fwd_to_idle 59',
+				'walk->sniff': 'walk_fwd_sniff_to_idle_sniff 53',
+				'sniff->stand': 'idle_sniff_to_idle 51',
+				'sniff->walk': 'idle_sniff_to_walk_sniff 34',
+			},
+			reaction: {
+				pet: ['interact_elmer_pet_1. 31', 'interact_elmer_pet_2', 'yes 8', 'wave 18', 'playbow 1'],
+				feed: ['interact_elmer_treat', 'yes 8'],
+				call: ['yes 8', 'wave 18'],
+			},
+			accent: {
+				stand: ['idle_shake_1. 137', 'idle_shake_2. 81', 'idle_sniff_one_off 83', 'idle_one_off_chin_drag 151'],
+				sit: ['idle_sit_one_off_scratch 176', 'idle_sit_one_off_step_1. 119', 'idle_sit_one_off_step_2. 119', 'yes 8'],
+				lay: ['idle_lay_one_off_1. 112', 'idle_lay_one_off_02 .201', 'idle_one_off_chin_drag 151'],
+				rest: ['idle_lay_one_off_1. 112', 'idle_one_off_chin_drag 151'],
+				sniff: ['idle_sniff 83', 'idle_sniff_one_off 83', 'idle sniff air 271'],
+			},
+		};
+
+		const MIN_STAY_SECONDS = {
+			stand: [3.5, 6.2],
+			sit: [4.5, 8.4],
+			lay: [6.2, 11.8],
+			rest: [8.0, 14.0],
+			sniff: [3.4, 5.6],
+			walk: [4.6, 8.2],
+		};
+
+		let container;
+		let stats;
+		let clock;
+		let mixer;
+		let camera;
+		let scene;
+		let renderer;
+		let model;
+		let personalityKey = null;
+		let lastStableChangeAt = 0;
+		let nextDecisionAt = 0;
+		let lastAccentAt = -999;
+		let autoEnabled = true;
+		let busy = false;
+		let currentStableKey = 'stand';
+		let activeClipName = '';
+		let actionByName = new Map();
+		let queue = [];
+		let requestedAction = null;
+
+		const ui = {
+			overlay: document.getElementById('personalityOverlay'),
+			petPanel: document.getElementById('petPanel'),
+			rhythmPanel: document.getElementById('rhythmPanel'),
+			personalityBadge: document.getElementById('personalityBadge'),
+			moodBadge: document.getElementById('moodBadge'),
+			stateBadge: document.getElementById('stateBadge'),
+			statusText: document.getElementById('statusText'),
+			helperText: document.getElementById('helperText'),
+			planText: document.getElementById('planText'),
+			activeAnimationBadge: document.getElementById('activeAnimationBadge'),
+			queueBadge: document.getElementById('queueBadge'),
+			decisionBadge: document.getElementById('decisionBadge'),
+			bondValue: document.getElementById('bondValue'),
+			energyValue: document.getElementById('energyValue'),
+			trustValue: document.getElementById('trustValue'),
+			bondBar: document.getElementById('bondBar'),
+			energyBar: document.getElementById('energyBar'),
+			trustBar: document.getElementById('trustBar'),
+			debugPanel: document.getElementById('debugPanel'),
+			toggleDebugBtn: document.getElementById('toggleDebugBtn'),
+		};
+
+		const petState = {
+			bond: 0,
+			energy: 0,
+			trust: 0,
+			moodScores: {
+				happy: 48,
+				calm: 70,
+				bored: 12,
+				alert: 14,
+			},
+			mood: 'calm',
+		};
 
 		init();
 
 		function init() {
-
 			container = document.createElement('div');
 			document.body.appendChild(container);
 
-			camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.25, 100);
-			camera.position.set(5, 5, 10);
-			camera.lookAt(-0.5, 2, 0);
+			camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.25, 100);
+			camera.position.set(0, 4.2, 12.5);
+			camera.lookAt(0, 2.2, 0);
 
 			scene = new THREE.Scene();
-
 			clock = new THREE.Clock();
 
-			// lights
-
-			const hemiLight = new THREE.HemisphereLight(0xffffff, 0x8d8d8d, 9);
-			hemiLight.position.set(0, 20, 0);
+			const hemiLight = new THREE.HemisphereLight(0xffffff, 0xc8b89d, 3.6);
+			hemiLight.position.set(0, 18, 0);
 			scene.add(hemiLight);
 
-			const dirLight = new THREE.DirectionalLight(0xffffff, 3);
-			dirLight.position.set(0, 20, 10);
+			const dirLight = new THREE.DirectionalLight(0xffffff, 2.8);
+			dirLight.position.set(6, 20, 12);
 			scene.add(dirLight);
 
-			// scene.background = new THREE.Color(0x000000, 0);
+			const fillLight = new THREE.DirectionalLight(0xfff0d9, 1.2);
+			fillLight.position.set(-10, 8, -6);
+			scene.add(fillLight);
 
-			// model
-
-			const loader = new GLTFLoader();
-			loader.load('../models/dog.glb', function (gltf) {
-
-				model = gltf.scene;
-				model.scale.set(0.04, 0.04, 0.04);
-				scene.add(model);
-
-				createAnime(model, gltf.animations);
-
-			}, undefined, function (e) {
-
-				console.error(e);
-
-			});
-
-			renderer = new THREE.WebGLRenderer({ alpha: true });
+			renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
 			renderer.setPixelRatio(window.devicePixelRatio);
 			renderer.setSize(window.innerWidth, window.innerHeight);
 			renderer.setAnimationLoop(animate);
-			container.appendChild(renderer.domElement);
 			renderer.setClearColor(0x000000, 0);
+			container.appendChild(renderer.domElement);
 
-			window.addEventListener('resize', onWindowResize);
-
-			// stats
 			stats = new Stats();
 			container.appendChild(stats.dom);
 
+			loadModel();
+			bindUI();
+
+			window.addEventListener('resize', onWindowResize);
+			updateUI();
 		}
 
-		function createAnime(model, animations) {
+		function bindUI() {
+			document.querySelectorAll('[data-personality]').forEach((button) => {
+				button.addEventListener('click', () => startPet(button.dataset.personality));
+			});
 
-			mixer = new THREE.AnimationMixer(model);
+			document.querySelectorAll('[data-action]').forEach((button) => {
+				button.addEventListener('click', () => handleInteraction(button.dataset.action));
+			});
 
-			actions = {};
+			ui.toggleDebugBtn.addEventListener('click', () => {
+				ui.debugPanel.classList.toggle('open');
+				ui.toggleDebugBtn.textContent = ui.debugPanel.classList.contains('open')
+					? '隐藏调试动作面板'
+					: '显示调试动作面板';
+			});
 
-			for (let i = 0; i < animations.length; i++) {
+			document.querySelectorAll('[data-panel-toggle]').forEach((button) => {
+				button.addEventListener('click', () => toggleMobilePanel(button.dataset.panelToggle));
+			});
+		}
 
-				const clip = animations[i];
+			function loadModel() {
+				const loader = new GLTFLoader();
+				loader.load('../models/animated_pitbull_dog.glb', (gltf) => {
+					model = gltf.scene;
+					fitModelToView(model);
+					scene.add(model);
+
+					setupAnimations(model, gltf.animations);
+				}, undefined, (error) => {
+					console.error(error);
+				ui.statusText.textContent = '模型加载失败，请检查资源路径。';
+			});
+		}
+
+			function setupAnimations(targetModel, animations) {
+			mixer = new THREE.AnimationMixer(targetModel);
+			actionByName = new Map();
+
+			for (const clip of animations) {
 				const action = mixer.clipAction(clip);
-				actions[i] = action;
-
+				action.clampWhenFinished = true;
+				action.enabled = true;
+				actionByName.set(clip.name, action);
 			}
 
-			activeAction = actions[3];
-			activeAction.play();
-
-		}
-
-		function fadeToAction(key, duration) {
-
-			previousAction = activeAction;
-			activeAction = actions[key];
-
-			if (previousAction !== activeAction) {
-
-				previousAction.fadeOut(duration);
-
+			populateDebugPanel();
+			ui.statusText.textContent = `模型加载完成，共识别 ${animations.length} 个动画，当前启用白名单动作做宠物逻辑。`;
+			ui.helperText.textContent = '先选择一个初始性格，系统会围绕稳定态和自然过渡自动安排动作。';
+				updateUI();
 			}
 
-			activeAction
-				.reset()
-				.setEffectiveTimeScale(1)
-				.setEffectiveWeight(1)
-				.fadeIn(duration)
-				.play();
+			function fitModelToView(targetModel) {
+				const isMobile = window.innerWidth <= 768;
+				const isCompact = window.innerWidth <= 920;
+				const desiredHeight = isMobile ? 3.45 : 3.95;
+				const groundY = isCompact ? -0.85 : -1.55;
+				const modelOffsetX = isCompact ? 0.05 : 1.55;
+				const lookAtX = isCompact ? 0.02 : 0.88;
 
+				targetModel.position.set(0, 0, 0);
+				targetModel.scale.set(1, 1, 1);
+
+				const initialBox = new THREE.Box3().setFromObject(targetModel);
+				const initialSize = new THREE.Vector3();
+				initialBox.getSize(initialSize);
+
+				if (initialSize.y > 0) {
+					const scaleFactor = desiredHeight / initialSize.y;
+					targetModel.scale.setScalar(scaleFactor);
+				}
+
+				const fittedBox = new THREE.Box3().setFromObject(targetModel);
+				const fittedSize = new THREE.Vector3();
+				const fittedCenter = new THREE.Vector3();
+				fittedBox.getSize(fittedSize);
+				fittedBox.getCenter(fittedCenter);
+
+				targetModel.position.x += modelOffsetX - fittedCenter.x;
+				targetModel.position.z -= fittedCenter.z;
+				targetModel.position.y += groundY - fittedBox.min.y;
+
+				const cameraDistance = Math.max(isMobile ? 8.9 : 9.2, fittedSize.length() * (isMobile ? 1.34 : 1.2));
+				camera.position.set(0, Math.max(isMobile ? 2.85 : 3.1, fittedSize.y * 1.02), cameraDistance);
+				camera.lookAt(lookAtX, Math.max(1.25, groundY + fittedSize.y * 0.72), 0);
+			}
+
+		function toggleMobilePanel(panelId) {
+			if (window.innerWidth > 920) return;
+
+			const panelMap = {
+				petPanel: ui.petPanel,
+				rhythmPanel: ui.rhythmPanel,
+			};
+
+			Object.entries(panelMap).forEach(([key, panel]) => {
+				if (!panel) return;
+				const shouldOpen = key === panelId ? !panel.classList.contains('open') : false;
+				panel.classList.toggle('open', shouldOpen);
+			});
 		}
 
-		window.fadeToAction = fadeToAction;
+			function populateDebugPanel() {
+				const usedNames = new Set();
+				Object.values(CLIP_PLAN.idle).flat().forEach((name) => usedNames.add(name));
+				Object.values(CLIP_PLAN.transition).forEach((name) => usedNames.add(name));
+				Object.values(CLIP_PLAN.reaction).flat().forEach((name) => usedNames.add(name));
+				Object.values(CLIP_PLAN.accent).flat().forEach((name) => usedNames.add(name));
 
-		function onWindowResize() {
+			for (const name of usedNames) {
+				if (!actionByName.has(name)) continue;
 
-			camera.aspect = window.innerWidth / window.innerHeight;
-			camera.updateProjectionMatrix();
-
-			renderer.setSize(window.innerWidth, window.innerHeight);
-
+				const button = document.createElement('button');
+				button.className = 'debug-btn';
+				button.textContent = name;
+				button.addEventListener('click', () => {
+					if (!mixer) return;
+					autoEnabled = false;
+					queue = [];
+					requestedAction = null;
+					playSequence([{ type: 'clip', clipName: name }], `调试播放：${name}`);
+				});
+				ui.debugPanel.appendChild(button);
+			}
 		}
 
-		//
+		function startPet(key) {
+			personalityKey = key;
+			const config = PERSONALITIES[key];
+			petState.bond = config.base.bond;
+			petState.energy = config.base.energy;
+			petState.trust = config.base.trust;
+			petState.moodScores = {
+				happy: 42 + config.moodBias.happy,
+				calm: 64 + config.moodBias.calm,
+				bored: 14 + config.moodBias.bored,
+				alert: 18 + config.moodBias.alert,
+			};
+			petState.mood = pickMood();
+			currentStableKey = pickWeightedStableState();
+			lastStableChangeAt = clock.elapsedTime;
+			nextDecisionAt = clock.elapsedTime + randomRange(...MIN_STAY_SECONDS[currentStableKey]);
+			ui.overlay.classList.add('hidden');
+			autoEnabled = true;
+			queue = [];
+			requestedAction = null;
+			enterStableState(currentStableKey, true);
+			updateUI();
+		}
+
+		function handleInteraction(type) {
+			if (!personalityKey || !mixer) return;
+
+			if (type === 'rest') {
+				autoEnabled = true;
+				requestedAction = null;
+				queue = [];
+				setStatus('你示意它放松一点，它会回到更安稳的节奏。');
+				moveMood('calm', 12);
+				moveMood('happy', 4);
+				moveMood('bored', -10);
+				requestStableTransition(preferRestState());
+				return;
+			}
+
+			applyInteractionEffects(type);
+			requestedAction = type;
+
+			if (!busy) {
+				processRequestedAction();
+			} else {
+				ui.decisionBadge.textContent = `决策：收到${interactionLabel(type)}，会在自然时机响应`;
+			}
+		}
+
+		function applyInteractionEffects(type) {
+			if (type === 'pet') {
+				petState.bond = clamp(petState.bond + 6, 0, 100);
+				petState.trust = clamp(petState.trust + 4, 0, 100);
+				moveMood('happy', 18);
+				moveMood('alert', -8);
+				moveMood('bored', -10);
+				setStatus('你轻轻摸了摸它，它开始认真注意你。');
+			} else if (type === 'feed') {
+				petState.bond = clamp(petState.bond + 8, 0, 100);
+				petState.energy = clamp(petState.energy + 14, 0, 100);
+				petState.trust = clamp(petState.trust + 6, 0, 100);
+				moveMood('happy', 20);
+				moveMood('bored', -12);
+				moveMood('alert', -6);
+				setStatus('你投喂了它，它的注意力一下子被吸引过来。');
+			} else if (type === 'call') {
+				petState.bond = clamp(petState.bond + 3, 0, 100);
+				moveMood('happy', 8);
+				moveMood('bored', -8);
+				setStatus('你呼唤了它，它会先调整姿态再回应你。');
+			}
+
+			petState.mood = pickMood();
+			updateUI();
+		}
+
+		function processRequestedAction() {
+			if (!requestedAction || busy) return;
+
+			autoEnabled = true;
+			const type = requestedAction;
+			requestedAction = null;
+			const targetStable = pickInteractionLandingState(type);
+			const sequence = buildInteractionSequence(type, targetStable);
+			playSequence(sequence, `回应互动：${interactionLabel(type)}`);
+		}
+
+		function buildInteractionSequence(type, targetStable) {
+			const sequence = [];
+			const safeState = prepareInteractiveState();
+			if (safeState !== currentStableKey) {
+				sequence.push(...buildStableTransition(currentStableKey, safeState));
+			}
+
+			const reactionName = pickReactionClip(type);
+			sequence.push({ type: 'clip', clipName: reactionName });
+
+			if (safeState !== targetStable) {
+				sequence.push(...buildStableTransition(safeState, targetStable));
+			}
+
+			sequence.push({ type: 'stable', stableKey: targetStable });
+			return sequence;
+		}
+
+		function prepareInteractiveState() {
+			if (currentStableKey === 'walk') {
+				return 'stand';
+			}
+
+			if (currentStableKey === 'lay') {
+				return 'stand';
+			}
+
+			return currentStableKey;
+		}
+
+		function pickInteractionLandingState(type) {
+			if (type === 'feed') return petState.energy > 64 ? 'stand' : 'sit';
+			if (type === 'call') return 'stand';
+			return petState.trust > 66 ? 'sit' : 'stand';
+		}
+
+		function pickReactionClip(type) {
+			const config = PERSONALITIES[personalityKey];
+			const bondBonus = petState.bond / 100;
+			const trustBonus = petState.trust / 100;
+
+			if (type === 'pet') {
+				const options = [...config.petResponse];
+				if (petState.mood === 'happy' && bondBonus > 0.6) {
+					options.push('playbow 1');
+				}
+				return firstAvailable(shuffle(options));
+			}
+
+			if (type === 'feed') {
+				const options = ['interact_elmer_treat', 'yes 8'];
+				if (petState.mood === 'happy' && trustBonus > 0.55) {
+					options.push('wave 18');
+				}
+				return firstAvailable(shuffle(options));
+			}
+
+			const options = ['yes 8'];
+			if (bondBonus > 0.42) options.push('wave 18');
+			return firstAvailable(shuffle(options));
+		}
+
+			function enterStableState(stableKey, immediate = false) {
+				const clipName = pickStableClip(stableKey);
+				currentStableKey = stableKey;
+				lastStableChangeAt = clock.elapsedTime;
+				nextDecisionAt = clock.elapsedTime + randomRange(...MIN_STAY_SECONDS[stableKey]);
+			activeClipName = clipName;
+			ui.decisionBadge.textContent = `决策：进入${stableLabel(stableKey)}`;
+			ui.activeAnimationBadge.textContent = `动画：${clipName}`;
+			ui.stateBadge.textContent = `状态：${stableLabel(stableKey)}`;
+			playClip(clipName, immediate ? 0.2 : 0.45, true);
+			updateUI();
+		}
+
+		function playSequence(sequence, reason) {
+			if (!sequence.length) return;
+			queue = [...sequence];
+			ui.queueBadge.textContent = `队列：${queue.map(readableQueueItem).join(' -> ')}`;
+			ui.decisionBadge.textContent = `决策：${reason}`;
+			runNextInQueue();
+			updateUI();
+		}
+
+		function runNextInQueue() {
+			if (!queue.length) {
+				busy = false;
+				ui.queueBadge.textContent = '队列：空';
+				if (requestedAction) {
+					processRequestedAction();
+				}
+				return;
+			}
+
+			busy = true;
+			const item = queue.shift();
+			ui.queueBadge.textContent = queue.length
+				? `队列：${queue.map(readableQueueItem).join(' -> ')}`
+				: '队列：执行中';
+
+			if (item.type === 'clip') {
+				playClip(item.clipName, 0.42, false, runNextInQueue);
+				return;
+			}
+
+			if (item.type === 'stable') {
+				enterStableState(item.stableKey);
+				busy = false;
+				ui.queueBadge.textContent = '队列：空';
+				if (requestedAction) processRequestedAction();
+			}
+		}
+
+		function playClip(clipName, fadeDuration, loop, onFinished = null) {
+			const nextAction = actionByName.get(clipName);
+			if (!nextAction) {
+				console.warn('Missing clip:', clipName);
+				if (onFinished) onFinished();
+				return;
+			}
+
+			const previousAction = activeClipName ? actionByName.get(activeClipName) : null;
+			activeClipName = clipName;
+
+			nextAction.reset();
+			nextAction.enabled = true;
+			nextAction.setEffectiveTimeScale(1);
+			nextAction.setEffectiveWeight(1);
+			nextAction.zeroSlopeAtStart = true;
+			nextAction.zeroSlopeAtEnd = true;
+			nextAction.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1);
+			nextAction.clampWhenFinished = !loop;
+
+			if (previousAction && previousAction !== nextAction) {
+				previousAction.fadeOut(fadeDuration);
+			}
+
+			nextAction.fadeIn(loop ? Math.max(fadeDuration, 0.55) : fadeDuration).play();
+			ui.activeAnimationBadge.textContent = `动画：${clipName}`;
+
+			if (!loop && onFinished) {
+				const handler = (event) => {
+					if (event.action !== nextAction) return;
+					mixer.removeEventListener('finished', handler);
+					onFinished();
+				};
+				mixer.addEventListener('finished', handler);
+			}
+		}
+
+		function buildStableTransition(fromKey, toKey) {
+			if (fromKey === toKey) return [];
+
+			const direct = CLIP_PLAN.transition[`${fromKey}->${toKey}`];
+			if (direct) {
+				return [{ type: 'clip', clipName: direct }];
+			}
+
+			if (fromKey === 'rest') {
+				return [
+					{ type: 'clip', clipName: CLIP_PLAN.transition['rest->stand'] },
+					...buildStableTransition('stand', toKey),
+				];
+			}
+
+			if (toKey === 'rest') {
+				return [
+					...buildStableTransition(fromKey, 'lay'),
+					{ type: 'stable', stableKey: 'rest' },
+				];
+			}
+
+			if (fromKey === 'walk' && toKey === 'sit') {
+				return [
+					{ type: 'clip', clipName: CLIP_PLAN.transition['walk->stand'] },
+					{ type: 'clip', clipName: CLIP_PLAN.transition['stand->sit'] },
+				];
+			}
+
+			if (fromKey === 'walk' && toKey === 'rest') {
+				return [
+					{ type: 'clip', clipName: CLIP_PLAN.transition['walk->stand'] },
+					{ type: 'clip', clipName: CLIP_PLAN.transition['stand->rest'] },
+					{ type: 'stable', stableKey: 'rest' },
+				];
+			}
+
+			if (fromKey === 'walk' && toKey === 'lay') {
+				return [
+					{ type: 'clip', clipName: CLIP_PLAN.transition['walk->stand'] },
+					{ type: 'clip', clipName: CLIP_PLAN.transition['stand->lay'] },
+				];
+			}
+
+			if (fromKey === 'sniff' && toKey === 'sit') {
+				return [
+					{ type: 'clip', clipName: CLIP_PLAN.transition['sniff->stand'] },
+					{ type: 'clip', clipName: CLIP_PLAN.transition['stand->sit'] },
+				];
+			}
+
+			if (fromKey === 'sniff' && toKey === 'lay') {
+				return [
+					{ type: 'clip', clipName: CLIP_PLAN.transition['sniff->stand'] },
+					{ type: 'clip', clipName: CLIP_PLAN.transition['stand->lay'] },
+				];
+			}
+
+			if (fromKey === 'sit' && toKey === 'walk') {
+				return [
+					{ type: 'clip', clipName: CLIP_PLAN.transition['sit->stand'] },
+					{ type: 'clip', clipName: CLIP_PLAN.transition['stand->walk'] },
+				];
+			}
+
+			if (fromKey === 'lay' && toKey === 'walk') {
+				return [
+					{ type: 'clip', clipName: CLIP_PLAN.transition['lay->stand'] },
+					{ type: 'clip', clipName: CLIP_PLAN.transition['stand->walk'] },
+				];
+			}
+
+			if (fromKey === 'sniff' && toKey === 'walk') {
+				return [
+					{ type: 'clip', clipName: CLIP_PLAN.transition['sniff->stand'] },
+					{ type: 'clip', clipName: CLIP_PLAN.transition['stand->walk'] },
+				];
+			}
+
+			if (fromKey === 'stand' && toKey === 'sniff') {
+				return [
+					{ type: 'stable', stableKey: 'sniff' },
+				];
+			}
+
+			return [
+				{ type: 'stable', stableKey: toKey },
+			];
+		}
+
+		function requestStableTransition(targetStable) {
+			if (!personalityKey || busy) {
+				requestedAction = null;
+				playSequence([
+					...buildStableTransition(currentStableKey, targetStable),
+					{ type: 'stable', stableKey: targetStable },
+				], `调整到${stableLabel(targetStable)}`);
+				return;
+			}
+
+			playSequence([
+				...buildStableTransition(currentStableKey, targetStable),
+				{ type: 'stable', stableKey: targetStable },
+			], `调整到${stableLabel(targetStable)}`);
+		}
 
 		function animate() {
-
 			const dt = clock.getDelta();
-
 			if (mixer) mixer.update(dt);
 
+			if (personalityKey && mixer) {
+				updateAutonomy();
+			}
+
 			renderer.render(scene, camera);
-
 			stats.update();
+		}
 
+		function updateAutonomy() {
+			decayNeeds();
+			updateMood();
+
+			if (busy || !autoEnabled) {
+				updateUI();
+				return;
+			}
+
+			const now = clock.elapsedTime;
+			if (now < nextDecisionAt) {
+				updateUI();
+				return;
+			}
+
+			const nextPlan = planNextAutonomousStep();
+			if (!nextPlan) {
+				nextDecisionAt = now + 1;
+				updateUI();
+				return;
+			}
+
+			playSequence(nextPlan.sequence, nextPlan.reason);
+			updateUI();
+		}
+
+		function planNextAutonomousStep() {
+			const mood = petState.mood;
+			const config = PERSONALITIES[personalityKey];
+			const stayDuration = clock.elapsedTime - lastStableChangeAt;
+			const minStay = MIN_STAY_SECONDS[currentStableKey][0];
+
+			if (stayDuration < minStay) {
+				return null;
+			}
+
+			if (currentStableKey !== 'walk' && clock.elapsedTime - lastAccentAt > 12 && Math.random() < accentChance()) {
+				const accentClip = pickAccentClip(currentStableKey);
+				if (accentClip) {
+					lastAccentAt = clock.elapsedTime;
+					return {
+						reason: '加入一个低频自然小动作',
+						sequence: [
+							{ type: 'clip', clipName: accentClip },
+							{ type: 'stable', stableKey: currentStableKey },
+						],
+					};
+				}
+			}
+
+			if (shouldExplore(mood, config)) {
+				const target = petState.energy > 30 ? 'walk' : preferRestState();
+				return {
+					reason: target === 'walk' ? '开始慢慢探索周围环境' : '精力较低，继续休息',
+					sequence: [
+						...buildStableTransition(currentStableKey, target),
+						{ type: 'stable', stableKey: target },
+					],
+				};
+			}
+
+			const targetStable = pickWeightedStableState();
+			if (targetStable !== currentStableKey) {
+				return {
+					reason: `按当前性格和心情，切换到${stableLabel(targetStable)}`,
+					sequence: [
+						...buildStableTransition(currentStableKey, targetStable),
+						{ type: 'stable', stableKey: targetStable },
+					],
+				};
+			}
+
+			nextDecisionAt = clock.elapsedTime + randomRange(2.5, 4.5);
+			return null;
+		}
+
+		function shouldExplore(mood, config) {
+			if (currentStableKey === 'walk') {
+				if (petState.energy < 25) return false;
+				return Math.random() < 0.45;
+			}
+
+			let chance = config.exploreChance;
+			if (mood === 'happy') chance += 0.12;
+			if (mood === 'bored') chance += 0.18;
+			if (mood === 'alert') chance += 0.08;
+			if (petState.energy < 40) chance -= 0.12;
+			if (petState.trust > 72 && mood === 'calm') chance -= 0.06;
+
+			return Math.random() < chance;
+		}
+
+			function pickWeightedStableState() {
+				const weights = structuredClone(PERSONALITIES[personalityKey].stableWeights);
+				const mood = petState.mood;
+
+				if (mood === 'happy') {
+					weights.stand += 0.08;
+					weights.walk += 0.08;
+					weights.sit -= 0.04;
+					weights.rest -= 0.04;
+				}
+
+				if (mood === 'bored') {
+					weights.walk += 0.14;
+					weights.sniff += 0.1;
+					weights.lay -= 0.08;
+					weights.rest -= 0.06;
+				}
+
+				if (mood === 'alert') {
+					weights.stand += 0.12;
+					weights.sniff += 0.12;
+					weights.lay -= 0.1;
+					weights.rest -= 0.08;
+				}
+
+				if (petState.energy < 34) {
+					weights.lay += 0.08;
+					weights.rest += 0.18;
+					weights.sit += 0.1;
+					weights.walk -= 0.14;
+				}
+
+				if (petState.trust > 70) {
+					weights.sit += 0.06;
+					weights.lay += 0.06;
+					weights.rest += 0.08;
+				}
+
+			return pickWeightedKey(weights);
+		}
+
+			function preferRestState() {
+				if (petState.energy < 30 && petState.trust > 48) return 'rest';
+				if (petState.energy < 38) return 'lay';
+				if (petState.trust > 62) return 'sit';
+				return 'stand';
+			}
+
+			function pickAccentClip(stableKey) {
+				const options = CLIP_PLAN.accent[stableKey] || [];
+				return firstAvailable(prioritizeAccentOptions(options));
+			}
+
+			function pickStableClip(stableKey) {
+				const options = CLIP_PLAN.idle[stableKey];
+				if (!Array.isArray(options)) return options;
+
+				if (stableKey === 'walk') {
+					if (petState.mood === 'bored' || petState.mood === 'happy') {
+						return firstAvailable(['walk_fwd_sniff_multi_cycle 61', 'walk_fwd_sniff 46']);
+					}
+
+					return firstAvailable(shuffle(options));
+				}
+
+				return firstAvailable(options);
+			}
+
+			function prioritizeAccentOptions(options) {
+				const pool = [...options];
+
+				if (petState.mood === 'alert') {
+					pool.sort((a, b) => Number(b.includes('sniff air')) - Number(a.includes('sniff air')));
+				}
+
+				if (petState.mood === 'bored') {
+					pool.sort((a, b) => Number(b.includes('chin_drag') || b.includes('step')) - Number(a.includes('chin_drag') || a.includes('step')));
+				}
+
+				if (petState.mood === 'happy') {
+					pool.sort((a, b) => Number(b.includes('shake') || b.includes('yes')) - Number(a.includes('shake') || a.includes('yes')));
+				}
+
+				return shuffle(pool);
+			}
+
+		function updateMood() {
+			petState.mood = pickMood();
+		}
+
+		function pickMood() {
+			return pickWeightedKey({
+				happy: petState.moodScores.happy + petState.bond * 0.12,
+				calm: petState.moodScores.calm + petState.trust * 0.1,
+				bored: petState.moodScores.bored + (60 - petState.energy) * -0.04 + 20,
+				alert: petState.moodScores.alert + (55 - petState.trust) * 0.18,
+			});
+		}
+
+		function decayNeeds() {
+			petState.energy = clamp(petState.energy - 0.003, 0, 100);
+			moveMood('bored', 0.015);
+			moveMood('happy', -0.01);
+			moveMood('alert', petState.trust < 45 ? 0.01 : -0.008);
+			moveMood('calm', 0.005);
+		}
+
+		function moveMood(key, delta) {
+			petState.moodScores[key] = clamp(petState.moodScores[key] + delta, 0, 100);
+		}
+
+		function setStatus(text) {
+			ui.statusText.textContent = text;
+		}
+
+		function updateUI() {
+			if (personalityKey) {
+				ui.personalityBadge.textContent = `性格：${PERSONALITIES[personalityKey].label}`;
+			}
+			ui.moodBadge.textContent = `心情：${MOOD_LABELS[petState.mood]}`;
+			ui.stateBadge.textContent = `状态：${stableLabel(currentStableKey)}`;
+			ui.bondValue.textContent = `${Math.round(petState.bond)}`;
+			ui.energyValue.textContent = `${Math.round(petState.energy)}`;
+			ui.trustValue.textContent = `${Math.round(petState.trust)}`;
+			ui.bondBar.style.width = `${petState.bond}%`;
+			ui.energyBar.style.width = `${petState.energy}%`;
+			ui.trustBar.style.width = `${petState.trust}%`;
+			ui.planText.textContent = describeCurrentPlan();
+		}
+
+		function describeCurrentPlan() {
+			if (!personalityKey) return '先选择一个初始性格，再开始这只小狗的日常生活。';
+				if (busy && queue.length) return `当前正在执行一条短动作链，结束后会自然回到${stableLabel(currentStableKey)}。`;
+				if (currentStableKey === 'walk') return '它正在慢慢探索环境，之后会自然停下闻一闻，再回到稳定姿态。';
+				if (currentStableKey === 'rest') return '它现在进入了更放松的休息状态，会低频做一些小动作。';
+				if (petState.mood === 'happy') return '它现在心情不错，更愿意积极回应你，也更可能做出友好反馈。';
+			if (petState.mood === 'bored') return '它有点无聊，接下来更可能自己发起探索或嗅闻。';
+			if (petState.mood === 'alert') return '它现在更在意环境变化，会优先观察和嗅闻，安全感高了以后会更放松。';
+			return '它现在处于平静节奏，会在稳定待机、小动作和慢速探索之间自然切换。';
+		}
+
+		function readableQueueItem(item) {
+			if (item.type === 'stable') return stableLabel(item.stableKey);
+			return shortClipName(item.clipName);
+		}
+
+		function shortClipName(name) {
+			return name.replace(/\s+\d+.*$/, '').replace(/\.\s*\d+$/, '').replace(/\s+\.$/, '');
+		}
+
+		function stableLabel(key) {
+			return {
+				stand: '站立待机',
+					sit: '坐下陪伴',
+					lay: '趴下休息',
+					rest: '放松休息',
+					sniff: '停下嗅闻',
+					walk: '慢速探索',
+				}[key];
+		}
+
+		function interactionLabel(type) {
+			return {
+				pet: '摸摸',
+				feed: '投喂',
+				call: '呼唤',
+				rest: '休息',
+			}[type];
+		}
+
+		function onWindowResize() {
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+			renderer.setSize(window.innerWidth, window.innerHeight);
+
+			if (model) {
+				fitModelToView(model);
+			}
+
+			if (window.innerWidth > 920) {
+				ui.petPanel.classList.remove('open');
+				ui.rhythmPanel.classList.remove('open');
+			}
+		}
+
+		function firstAvailable(names) {
+			for (const name of names) {
+				if (actionByName.has(name)) return name;
+			}
+			return names.find((name) => actionByName.has(name)) || CLIP_PLAN.idle.stand;
+		}
+
+		function pickWeightedKey(weights) {
+			const normalized = Object.entries(weights).map(([key, value]) => [key, Math.max(0.001, value)]);
+			const total = normalized.reduce((sum, [, value]) => sum + value, 0);
+			let cursor = Math.random() * total;
+
+			for (const [key, value] of normalized) {
+				cursor -= value;
+				if (cursor <= 0) return key;
+			}
+
+			return normalized[normalized.length - 1][0];
+		}
+
+		function shuffle(list) {
+			const result = [...list];
+			for (let i = result.length - 1; i > 0; i--) {
+				const j = Math.floor(Math.random() * (i + 1));
+				[result[i], result[j]] = [result[j], result[i]];
+			}
+			return result;
+		}
+
+		function randomRange(min, max) {
+			return min + Math.random() * (max - min);
+		}
+
+		function accentChance() {
+			let chance = 0.18;
+			if (petState.mood === 'happy') chance += 0.06;
+			if (petState.mood === 'bored') chance += 0.08;
+			if (currentStableKey === 'lay') chance -= 0.06;
+			return chance;
+		}
+
+		function clamp(value, min, max) {
+			return Math.min(max, Math.max(min, value));
 		}
 
 	</script>
