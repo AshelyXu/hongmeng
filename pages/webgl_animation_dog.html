@@ -464,11 +464,11 @@
 		}
 	</script>
 
-	<script type="module">
+		<script type="module">
 
-		import * as THREE from 'three';
-		import Stats from 'three/addons/libs/stats.module.js';
-		import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+			import * as THREE from 'three';
+			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 			const STABLE_STATES = {
 				stand: 'StandIdle',
@@ -480,33 +480,39 @@
 			};
 
 		const PERSONALITIES = {
-			gentle: {
-				label: '温顺型',
-				base: { bond: 62, energy: 52, trust: 68 },
-				stableWeights: { stand: 0.16, sit: 0.34, lay: 0.2, rest: 0.16, sniff: 0.1, walk: 0.04 },
-				moodBias: { calm: 10, happy: 8, bored: -4, alert: -4 },
-				exploreChance: 0.22,
-				playfulBonus: 0.08,
-				petResponse: ['interact_elmer_pet_1', 'yes', 'interact_elmer_pet_2'],
-			},
-			playful: {
-				label: '活泼型',
-				base: { bond: 55, energy: 78, trust: 58 },
-				stableWeights: { stand: 0.25, sit: 0.16, lay: 0.06, rest: 0.04, sniff: 0.2, walk: 0.29 },
-				moodBias: { calm: -6, happy: 12, bored: 4, alert: -2 },
-				exploreChance: 0.48,
-				playfulBonus: 0.18,
-				petResponse: ['interact_elmer_pet_1', 'interact_elmer_pet_2', 'playbow'],
-			},
-			alert: {
-				label: '警觉型',
-				base: { bond: 46, energy: 61, trust: 40 },
-				stableWeights: { stand: 0.33, sit: 0.11, lay: 0.04, rest: 0.03, sniff: 0.29, walk: 0.2 },
-				moodBias: { calm: -8, happy: 0, bored: 0, alert: 12 },
-				exploreChance: 0.32,
-				playfulBonus: 0.02,
-				petResponse: ['yes', 'interact_elmer_pet_1', 'wave'],
-			},
+				gentle: {
+					label: '温顺型',
+					base: { bond: 62, energy: 52, trust: 68 },
+					stableWeights: { stand: 0.16, sit: 0.34, lay: 0.2, rest: 0.16, sniff: 0.1, walk: 0.04 },
+					moodBias: { calm: 10, happy: 8, bored: -4, alert: -4 },
+					exploreChance: 0.22,
+					turnChance: 0.08,
+					turnToWalkChance: 0.24,
+					playfulBonus: 0.08,
+					petResponse: ['interact_elmer_pet_1', 'yes', 'interact_elmer_pet_2'],
+				},
+				playful: {
+					label: '活泼型',
+					base: { bond: 55, energy: 78, trust: 58 },
+					stableWeights: { stand: 0.25, sit: 0.16, lay: 0.06, rest: 0.04, sniff: 0.2, walk: 0.29 },
+					moodBias: { calm: -6, happy: 12, bored: 4, alert: -2 },
+					exploreChance: 0.48,
+					turnChance: 0.16,
+					turnToWalkChance: 0.48,
+					playfulBonus: 0.18,
+					petResponse: ['interact_elmer_pet_1', 'interact_elmer_pet_2', 'playbow'],
+				},
+				alert: {
+					label: '警觉型',
+					base: { bond: 46, energy: 61, trust: 40 },
+					stableWeights: { stand: 0.33, sit: 0.11, lay: 0.04, rest: 0.03, sniff: 0.29, walk: 0.2 },
+					moodBias: { calm: -8, happy: 0, bored: 0, alert: 12 },
+					exploreChance: 0.32,
+					turnChance: 0.22,
+					turnToWalkChance: 0.34,
+					playfulBonus: 0.02,
+					petResponse: ['yes', 'interact_elmer_pet_1', 'wave'],
+				},
 		};
 
 		const MOOD_LABELS = {
@@ -523,7 +529,7 @@
 				lay: 'idle_lay_pose 2',
 				rest: 'idle_rest_pose 22',
 				sniff: 'idle_sniff_pose',
-				walk: ['walk_fwd_sniff 46', 'walk_fwd_sniff_multi_cycle 61'],
+				walk: ['walk_fwd_sniff 46', 'walk_fwd_sniff_multi_cycle 61', 'walk_fwd_sniff_bank_lft 46', 'walk_fwd_sniff_bank_rgt 46'],
 			},
 			transition: {
 				'stand->sit': 'idle_to_idle_sit 57',
@@ -548,6 +554,10 @@
 				'sniff->stand': 'idle_sniff_to_idle 51',
 				'sniff->walk': 'idle_sniff_to_walk_sniff 34',
 			},
+			turn: {
+				stand: ['idle_turn_45_rgt', 'idle_turn_90_rgt', 'idle_turn_135_rgt', 'idle_turn_180_lft', 'idle_turn_180_rgt'],
+				standToWalk: ['idle_turn_45_rgt_to_walk_fwd', 'idle_turn_90_rgt_to_walk_fwd', 'idle_turn_135_rgt_to_walk_fwd', 'idle_turn_180_rgt_to_walk_fwd'],
+			},
 			reaction: {
 				pet: ['interact_elmer_pet_1. 31', 'interact_elmer_pet_2', 'yes 8', 'wave 18', 'playbow 1'],
 				feed: ['interact_elmer_treat', 'yes 8'],
@@ -571,13 +581,13 @@
 			walk: [4.6, 8.2],
 		};
 
-		let container;
-		let stats;
-		let clock;
-		let mixer;
-		let camera;
-		let scene;
-		let renderer;
+			let container;
+			let clock;
+			let mixer;
+			let camera;
+			let controls;
+			let scene;
+			let renderer;
 		let model;
 		let personalityKey = null;
 		let lastStableChangeAt = 0;
@@ -655,15 +665,22 @@
 			renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
 			renderer.setPixelRatio(window.devicePixelRatio);
 			renderer.setSize(window.innerWidth, window.innerHeight);
-			renderer.setAnimationLoop(animate);
-			renderer.setClearColor(0x000000, 0);
-			container.appendChild(renderer.domElement);
+				renderer.setAnimationLoop(animate);
+				renderer.setClearColor(0x000000, 0);
+				container.appendChild(renderer.domElement);
 
-			stats = new Stats();
-			container.appendChild(stats.dom);
+				controls = new OrbitControls(camera, renderer.domElement);
+				controls.enableDamping = true;
+				controls.dampingFactor = 0.08;
+				controls.enablePan = false;
+				controls.enableZoom = false;
+				controls.rotateSpeed = 0.65;
+				controls.minPolarAngle = Math.PI * 0.2;
+				controls.maxPolarAngle = Math.PI * 0.58;
+				controls.target.set(0.88, 1.7, 0);
 
-			loadModel();
-			bindUI();
+				loadModel();
+				bindUI();
 
 			window.addEventListener('resize', onWindowResize);
 			updateUI();
@@ -754,6 +771,11 @@
 				const cameraDistance = Math.max(isMobile ? 8.9 : 9.2, fittedSize.length() * (isMobile ? 1.34 : 1.2));
 				camera.position.set(0, Math.max(isMobile ? 2.85 : 3.1, fittedSize.y * 1.02), cameraDistance);
 				camera.lookAt(lookAtX, Math.max(1.25, groundY + fittedSize.y * 0.72), 0);
+
+				if (controls) {
+					controls.target.set(lookAtX, Math.max(1.25, groundY + fittedSize.y * 0.72), 0);
+					controls.update();
+				}
 			}
 
 		function toggleMobilePanel(panelId) {
@@ -775,6 +797,7 @@
 				const usedNames = new Set();
 				Object.values(CLIP_PLAN.idle).flat().forEach((name) => usedNames.add(name));
 				Object.values(CLIP_PLAN.transition).forEach((name) => usedNames.add(name));
+				Object.values(CLIP_PLAN.turn).flat().forEach((name) => usedNames.add(name));
 				Object.values(CLIP_PLAN.reaction).flat().forEach((name) => usedNames.add(name));
 				Object.values(CLIP_PLAN.accent).flat().forEach((name) => usedNames.add(name));
 
@@ -1138,17 +1161,17 @@
 			], `调整到${stableLabel(targetStable)}`);
 		}
 
-		function animate() {
-			const dt = clock.getDelta();
-			if (mixer) mixer.update(dt);
+			function animate() {
+				const dt = clock.getDelta();
+				if (mixer) mixer.update(dt);
+				if (controls) controls.update();
 
-			if (personalityKey && mixer) {
-				updateAutonomy();
+				if (personalityKey && mixer) {
+					updateAutonomy();
+				}
+
+				renderer.render(scene, camera);
 			}
-
-			renderer.render(scene, camera);
-			stats.update();
-		}
 
 		function updateAutonomy() {
 			decayNeeds();
@@ -1176,18 +1199,18 @@
 			updateUI();
 		}
 
-		function planNextAutonomousStep() {
-			const mood = petState.mood;
-			const config = PERSONALITIES[personalityKey];
-			const stayDuration = clock.elapsedTime - lastStableChangeAt;
+			function planNextAutonomousStep() {
+				const mood = petState.mood;
+				const config = PERSONALITIES[personalityKey];
+				const stayDuration = clock.elapsedTime - lastStableChangeAt;
 			const minStay = MIN_STAY_SECONDS[currentStableKey][0];
 
 			if (stayDuration < minStay) {
 				return null;
 			}
 
-			if (currentStableKey !== 'walk' && clock.elapsedTime - lastAccentAt > 12 && Math.random() < accentChance()) {
-				const accentClip = pickAccentClip(currentStableKey);
+				if (currentStableKey !== 'walk' && clock.elapsedTime - lastAccentAt > 12 && Math.random() < accentChance()) {
+					const accentClip = pickAccentClip(currentStableKey);
 				if (accentClip) {
 					lastAccentAt = clock.elapsedTime;
 					return {
@@ -1197,11 +1220,15 @@
 							{ type: 'stable', stableKey: currentStableKey },
 						],
 					};
+					}
 				}
-			}
 
-			if (shouldExplore(mood, config)) {
-				const target = petState.energy > 30 ? 'walk' : preferRestState();
+				if (canTurnInPlace() && Math.random() < turnChance(mood, config)) {
+					return buildTurnPlan(mood, config);
+				}
+
+				if (shouldExplore(mood, config)) {
+					const target = petState.energy > 30 ? 'walk' : preferRestState();
 				return {
 					reason: target === 'walk' ? '开始慢慢探索周围环境' : '精力较低，继续休息',
 					sequence: [
@@ -1226,11 +1253,11 @@
 			return null;
 		}
 
-		function shouldExplore(mood, config) {
-			if (currentStableKey === 'walk') {
-				if (petState.energy < 25) return false;
-				return Math.random() < 0.45;
-			}
+			function shouldExplore(mood, config) {
+				if (currentStableKey === 'walk') {
+					if (petState.energy < 25) return false;
+					return Math.random() < 0.52;
+				}
 
 			let chance = config.exploreChance;
 			if (mood === 'happy') chance += 0.12;
@@ -1239,8 +1266,48 @@
 			if (petState.energy < 40) chance -= 0.12;
 			if (petState.trust > 72 && mood === 'calm') chance -= 0.06;
 
-			return Math.random() < chance;
-		}
+				return Math.random() < chance;
+			}
+
+			function canTurnInPlace() {
+				return currentStableKey === 'stand' || currentStableKey === 'sniff';
+			}
+
+			function turnChance(mood, config) {
+				let chance = config.turnChance;
+				if (mood === 'alert') chance += 0.12;
+				if (mood === 'bored') chance += 0.06;
+				if (mood === 'happy') chance += 0.03;
+				if (petState.energy < 35) chance -= 0.05;
+				return Math.max(0, chance);
+			}
+
+			function buildTurnPlan(mood, config) {
+				const sequence = [];
+				const fromSniff = currentStableKey === 'sniff';
+				if (fromSniff) {
+					sequence.push({ type: 'clip', clipName: CLIP_PLAN.transition['sniff->stand'] });
+				}
+
+				const walkAfterTurn = petState.energy > 38 && Math.random() < config.turnToWalkChance;
+				if (walkAfterTurn) {
+					const turnClip = firstAvailable(shuffle(CLIP_PLAN.turn.standToWalk));
+					sequence.push({ type: 'clip', clipName: turnClip });
+					sequence.push({ type: 'stable', stableKey: 'walk' });
+					return {
+						reason: '它先观察了方向，然后沿着新的方向慢慢巡游',
+						sequence,
+					};
+				}
+
+				const turnClip = firstAvailable(shuffle(CLIP_PLAN.turn.stand));
+				sequence.push({ type: 'clip', clipName: turnClip });
+				sequence.push({ type: 'stable', stableKey: mood === 'alert' ? 'sniff' : 'stand' });
+				return {
+					reason: '它轻轻转了转身，像是在重新观察周围环境',
+					sequence,
+				};
+			}
 
 			function pickWeightedStableState() {
 				const weights = structuredClone(PERSONALITIES[personalityKey].stableWeights);
@@ -1300,8 +1367,12 @@
 				if (!Array.isArray(options)) return options;
 
 				if (stableKey === 'walk') {
+					if (petState.mood === 'alert') {
+						return firstAvailable(shuffle(['walk_fwd_sniff_bank_lft 46', 'walk_fwd_sniff_bank_rgt 46', 'walk_fwd_sniff 46']));
+					}
+
 					if (petState.mood === 'bored' || petState.mood === 'happy') {
-						return firstAvailable(['walk_fwd_sniff_multi_cycle 61', 'walk_fwd_sniff 46']);
+						return firstAvailable(shuffle(['walk_fwd_sniff_multi_cycle 61', 'walk_fwd_sniff_bank_lft 46', 'walk_fwd_sniff_bank_rgt 46', 'walk_fwd_sniff 46']));
 					}
 
 					return firstAvailable(shuffle(options));
